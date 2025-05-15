@@ -1,7 +1,7 @@
 import React, { useEffect, useState, useRef } from "react";
 import "./index.css";
 
-const BASE_URL = "http://127.0.0.1:5000";
+const BASE_URL = "https://backend-krtj.onrender.com";
 
 function App() {
   const [lists, setLists] = useState([]);
