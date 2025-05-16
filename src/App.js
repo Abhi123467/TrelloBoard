@@ -17,70 +17,87 @@ function App() {
   const [showModal, setShowModal] = useState(false);
   const [modalCardId, setModalCardId] = useState(null);
   const [modalListId, setModalListId] = useState(null);
-const titleInputRef = useRef(null);
+  const titleInputRef = useRef(null);
 
-const handleAddList = async () => {
-  if (!newListTitle.trim()) return;
-  try {
-    const response = await fetch(`${BASE_URL}/lists`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ title: newListTitle }),
-    });
-    if (response.ok) {
-      setNewListTitle("");
-      setShowListInput(false);
-      fetchLists();
+  const handleAddList = async () => {
+    if (!newListTitle.trim()) return;
+    try {
+      const response = await fetch(`${BASE_URL}/lists`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ title: newListTitle }),
+      });
+      if (response.ok) {
+        setNewListTitle("");
+        setShowListInput(false);
+        fetchLists();
+      }
+    } catch (error) {
+      console.error("Error adding list:", error);
     }
-  } catch (error) {
-    console.error("Error adding list:", error);
-  }
-};
+  };
 
-const handleDeleteList = async (listId) => {
-  try {
-    const response = await fetch(`${BASE_URL}/lists/${listId}`, {
-      method: "DELETE",
-    });
-    if (response.ok) {
-      fetchLists();
+  const handleUpdateList = async (listId) => {
+    if (!editingTitle.trim()) return;
+    try {
+      const response = await fetch(`${BASE_URL}/lists/${listId}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ title: editingTitle }),
+      });
+      if (response.ok) {
+        setEditingListId(null);
+        fetchLists();
+      }
+    } catch (error) {
+      console.error("Error updating list:", error);
     }
-  } catch (error) {
-    console.error("Error deleting list:", error);
-  }
-};
+  };
 
-const handleAddCard = async (listId) => {
-  const text = newCardTexts[listId]?.trim();
-  if (!text) return;
-  try {
-    const response = await fetch(`${BASE_URL}/cards`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ list_id: listId, text }),
-    });
-    if (response.ok) {
-      setNewCardTexts((prev) => ({ ...prev, [listId]: "" }));
-      setCardInputs((prev) => ({ ...prev, [listId]: false }));
-      fetchLists();
+  const handleDeleteList = async (listId) => {
+    try {
+      const response = await fetch(`${BASE_URL}/lists/${listId}`, {
+        method: "DELETE",
+      });
+      if (response.ok) {
+        fetchLists();
+      }
+    } catch (error) {
+      console.error("Error deleting list:", error);
     }
-  } catch (error) {
-    console.error("Error adding card:", error);
-  }
-};
+  };
 
-const handleDeleteCard = async (cardId) => {
-  try {
-    const response = await fetch(`${BASE_URL}/cards/${cardId}`, {
-      method: "DELETE",
-    });
-    if (response.ok) {
-      fetchLists();
+  const handleAddCard = async (listId) => {
+    const text = newCardTexts[listId]?.trim();
+    if (!text) return;
+    try {
+      const response = await fetch(`${BASE_URL}/cards`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ list_id: listId, text }),
+      });
+      if (response.ok) {
+        setNewCardTexts((prev) => ({ ...prev, [listId]: "" }));
+        setCardInputs((prev) => ({ ...prev, [listId]: false }));
+        fetchLists();
+      }
+    } catch (error) {
+      console.error("Error adding card:", error);
     }
-  } catch (error) {
-    console.error("Error deleting card:", error);
-  }
-};
+  };
+
+  const handleDeleteCard = async (cardId) => {
+    try {
+      const response = await fetch(`${BASE_URL}/cards/${cardId}`, {
+        method: "DELETE",
+      });
+      if (response.ok) {
+        fetchLists();
+      }
+    } catch (error) {
+      console.error("Error deleting card:", error);
+    }
+  };
 
   const openEditModal = (listId, cardId) => {
     setModalCardId(cardId);
@@ -113,7 +130,18 @@ const handleDeleteCard = async (cardId) => {
     fetchLists();
   }, []);
 
-  // ... (keep all other existing functions the same as in your original App.js)
+  useEffect(() => {
+    const handleClickOutside = (e) => {
+      if (editingListId && titleInputRef.current && !titleInputRef.current.contains(e.target)) {
+        handleUpdateList(editingListId);
+      }
+    };
+
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside);
+    };
+  }, [editingListId, editingTitle]);
 
   return (
     <div className="task-board">
@@ -129,6 +157,11 @@ const handleDeleteCard = async (cardId) => {
                   className="input-field"
                   value={editingTitle}
                   onChange={(e) => setEditingTitle(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") {
+                      handleUpdateList(list.id);
+                    }
+                  }}
                   autoFocus
                 />
               ) : (
@@ -273,7 +306,7 @@ const handleDeleteCard = async (cardId) => {
         <EditModal
           cardId={modalCardId}
           onClose={closeEditModal}
-          onUpdate={fetchLists}  // This will refresh the lists after updates
+          onUpdate={fetchLists}
         />
       )}
     </div>
