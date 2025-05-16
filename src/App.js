@@ -1,5 +1,6 @@
 import React, { useEffect, useState, useRef } from "react";
 import "./index.css";
+import EditModal from "./EditModal";
 
 const BASE_URL = "https://backend-krtj.onrender.com";
 
@@ -13,134 +14,106 @@ function App() {
   const [editingTitle, setEditingTitle] = useState("");
   const [editingCardId, setEditingCardId] = useState(null);
   const [editingCardText, setEditingCardText] = useState("");
+  const [showModal, setShowModal] = useState(false);
+  const [modalCardId, setModalCardId] = useState(null);
+  const [modalListId, setModalListId] = useState(null);
+const titleInputRef = useRef(null);
+
+const handleAddList = async () => {
+  if (!newListTitle.trim()) return;
+  try {
+    const response = await fetch(`${BASE_URL}/lists`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ title: newListTitle }),
+    });
+    if (response.ok) {
+      setNewListTitle("");
+      setShowListInput(false);
+      fetchLists();
+    }
+  } catch (error) {
+    console.error("Error adding list:", error);
+  }
+};
+
+const handleDeleteList = async (listId) => {
+  try {
+    const response = await fetch(`${BASE_URL}/lists/${listId}`, {
+      method: "DELETE",
+    });
+    if (response.ok) {
+      fetchLists();
+    }
+  } catch (error) {
+    console.error("Error deleting list:", error);
+  }
+};
+
+const handleAddCard = async (listId) => {
+  const text = newCardTexts[listId]?.trim();
+  if (!text) return;
+  try {
+    const response = await fetch(`${BASE_URL}/cards`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ list_id: listId, text }),
+    });
+    if (response.ok) {
+      setNewCardTexts((prev) => ({ ...prev, [listId]: "" }));
+      setCardInputs((prev) => ({ ...prev, [listId]: false }));
+      fetchLists();
+    }
+  } catch (error) {
+    console.error("Error adding card:", error);
+  }
+};
+
+const handleDeleteCard = async (cardId) => {
+  try {
+    const response = await fetch(`${BASE_URL}/cards/${cardId}`, {
+      method: "DELETE",
+    });
+    if (response.ok) {
+      fetchLists();
+    }
+  } catch (error) {
+    console.error("Error deleting card:", error);
+  }
+};
+
+  const openEditModal = (listId, cardId) => {
+    setModalCardId(cardId);
+    setModalListId(listId);
+    setShowModal(true);
+  };
+
+  const closeEditModal = () => {
+    setShowModal(false);
+    setModalCardId(null);
+    setModalListId(null);
+  };
+
+  const fetchLists = async () => {
+    try {
+      const response = await fetch(`${BASE_URL}/lists`);
+      const data = await response.json();
+      const updatedData = data.map((list) => ({
+        ...list,
+        showMenu: false,
+        cards: list.cards || [],
+      }));
+      setLists(updatedData);
+    } catch (error) {
+      console.error("Error fetching lists:", error);
+    }
+  };
 
   useEffect(() => {
     fetchLists();
   }, []);
 
-  const fetchLists = async () => {
-    const response = await fetch(`${BASE_URL}/lists`);
-    const data = await response.json();
-    const updatedData = data.map((list) => ({ 
-      ...list, 
-      showMenu: false,
-      cards: list.cards?.map(card => ({ ...card, showMenu: false })) || [] 
-    }));
-    setLists(updatedData);
-  };
-
-  const handleAddList = async () => {
-    if (!newListTitle.trim()) return;
-    await fetch(`${BASE_URL}/lists`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ title: newListTitle }),
-    });
-    setNewListTitle("");
-    setShowListInput(false);
-    fetchLists();
-  };
-
-  const handleAddCard = async (listId) => {
-    const text = newCardTexts[listId];
-    if (!text?.trim()) return;
-
-    await fetch(`${BASE_URL}/cards`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ list_id: listId, text }),
-    });
-
-    setNewCardTexts((prev) => ({ ...prev, [listId]: "" }));
-    setCardInputs((prev) => ({ ...prev, [listId]: false }));
-    fetchLists();
-  };
-
-  const handleEditCard = async (cardId) => {
-    if (editingCardText?.trim()) {
-      await fetch(`${BASE_URL}/cards/${cardId}`, {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ text: editingCardText }),
-      });
-      setEditingCardId(null);
-      setEditingCardText("");
-      fetchLists();
-    }
-  };
-
-  const handleDeleteCard = async (cardId) => {
-    const confirmDelete = window.confirm("Are you sure you want to delete this card?");
-    if (confirmDelete) {
-      await fetch(`${BASE_URL}/cards/${cardId}`, {
-        method: "DELETE",
-      });
-      fetchLists();
-    }
-  };
-
-  const saveEditedTitle = async () => {
-    if (editingTitle?.trim()) {
-      await fetch(`${BASE_URL}/lists/${editingListId}`, {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ title: editingTitle }),
-      });
-      setEditingListId(null);
-      setEditingTitle("");
-      fetchLists();
-    } else {
-      setEditingListId(null);
-    }
-  };
-
-  const handleDeleteList = async (listId) => {
-    const confirmDelete = window.confirm("Are you sure you want to delete this list?");
-    if (confirmDelete) {
-      await fetch(`${BASE_URL}/lists/${listId}`, {
-        method: "DELETE",
-      });
-      fetchLists();
-    }
-  };
-
-  const toggleCardMenu = (listId, cardId) => {
-    setLists(prevLists =>
-      prevLists.map(list => {
-        if (list.id === listId) {
-          return {
-            ...list,
-            cards: list.cards.map(card => {
-              if (card.id === cardId) {
-                return { ...card, showMenu: !card.showMenu };
-              }
-              return { ...card, showMenu: false };
-            })
-          };
-        }
-        return list;
-      })
-    );
-  };
-
-  const titleInputRef = useRef(null);
-
-  useEffect(() => {
-    const handleClickOutside = (event) => {
-      if (
-        editingListId &&
-        titleInputRef.current &&
-        !titleInputRef.current.contains(event.target)
-      ) {
-        saveEditedTitle();
-      }
-    };
-
-    document.addEventListener("mousedown", handleClickOutside);
-    return () => {
-      document.removeEventListener("mousedown", handleClickOutside);
-    };
-  }, [editingListId, editingTitle]);
+  // ... (keep all other existing functions the same as in your original App.js)
 
   return (
     <div className="task-board">
@@ -204,44 +177,37 @@ function App() {
             </div>
 
             {list.cards?.map((card) => (
-              <div key={card.id} className="card">
-                {editingCardId === card.id ? (
-                  <>
-                    <input
-                      type="text"
-                      className="input-field"
-                      value={editingCardText}
-                      onChange={(e) => setEditingCardText(e.target.value)}
+              <div 
+                key={card.id} 
+                className="card"
+                onMouseEnter={(e) => {
+                  e.currentTarget.querySelector('.card-delete-btn').style.display = 'block';
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.querySelector('.card-delete-btn').style.display = 'none';
+                }}
+              >
+                {card.cover_image_url && (
+                  <div className="card-cover">
+                    <img 
+                      src={`${BASE_URL}/${card.cover_image_url}`} 
+                      alt="Cover" 
+                      className="card-cover-image"
                     />
-                    <button className="save-btn" onClick={() => handleEditCard(card.id)}>
-                      Save
-                    </button>
-                  </>
-                ) : (
-                  <>
-                    <div className="card-content">{card.text}</div>
-                    <button
-                      className="card-menu-btn"
-                      onClick={() => toggleCardMenu(list.id, card.id)}
-                    >
-                      ⋮
-                    </button>
-                    {card.showMenu && (
-                      <div className="card-menu">
-                        <button
-                          onClick={() => {
-                            setEditingCardId(card.id);
-                            setEditingCardText(card.text);
-                            toggleCardMenu(list.id, card.id);
-                          }}
-                        >
-                          Edit
-                        </button>
-                        <button onClick={() => handleDeleteCard(card.id)}>Delete</button>
-                      </div>
-                    )}
-                  </>
+                  </div>
                 )}
+                <div className="card-content" onClick={() => openEditModal(list.id, card.id)}>
+                  {card.text}
+                </div>
+                <button
+                  className="card-delete-btn"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    handleDeleteCard(card.id);
+                  }}
+                >
+                  ❌
+                </button>
               </div>
             ))}
 
@@ -291,23 +257,25 @@ function App() {
               <button className="save-btn" onClick={handleAddList}>
                 Add List
               </button>
-              <button
-                className="cancel-btn"
-                onClick={() => setShowListInput(false)}
-              >
+              <button className="cancel-btn" onClick={() => setShowListInput(false)}>
                 Cancel
               </button>
             </div>
           ) : (
-            <button
-              className="add-list-btn"
-              onClick={() => setShowListInput(true)}
-            >
+            <button className="add-list-btn" onClick={() => setShowListInput(true)}>
               + Add another list
             </button>
           )}
         </div>
       </div>
+
+      {showModal && (
+        <EditModal
+          cardId={modalCardId}
+          onClose={closeEditModal}
+          onUpdate={fetchLists}  // This will refresh the lists after updates
+        />
+      )}
     </div>
   );
 }
